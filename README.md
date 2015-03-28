@@ -29,4 +29,4 @@ Move a page forward
 Lists out all the stored bookmarks  
 
 `read page content`  
-Reads the page content(current output only in text not audio)
+Reads the page content

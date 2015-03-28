@@ -9,13 +9,17 @@
 
 import pyaudio,os
 import speech_recognition
-from threading import Thread
+# from threading import Thread
 from pygoogle import pygoogle
+import gobject
 import time
 import subprocess
 import webkit
 import html2text
+import threading
 import gtk
+import urllib2
+import bs4
 
 speechRecognizer = None
 
@@ -30,6 +34,7 @@ class Browser():
         self.history = ['']
         self.historyIndex = 0
         self.bookmarks = []
+        self.audioOutput = True
         # self.recognizeCommand()
         self.init()
         
@@ -106,20 +111,21 @@ class Browser():
         
     def listenerThread(self,widget):
 
-        global speechRecognizer
-        speechRecognizer = speech_recognition.Recognizer()
-        speechRecognizer.energy_threshold = 2000
-        speechRecognizer.pause_threshold = 0.5
-        with speech_recognition.Microphone() as source:
-            listenerThread = Thread(target = self.speechListener, args = (source, ))
-            listenerThread.start()
-            listenerThread.join()
-            print("finished listening")
-        
-        self.recognizeCommand()
+		global speechRecognizer
+		speechRecognizer = speech_recognition.Recognizer()
+		speechRecognizer.energy_threshold = 2000
+		speechRecognizer.pause_threshold = 0.5
+		with speech_recognition.Microphone() as source:
+			self.audioOutput = False
+			listenerThread = threading.Thread(target = self.speechListener, args = (source, ))
+			listenerThread.start()
+			listenerThread.join()
+			self.audioOutput = True
+			print("finished listening")
+		self.recognizeCommand()
 
     def recognizeCommand(self):
-
+    	# self.command = 'read page content'
         self.command = self.command.encode('ascii')
         words = self.command.split() #split by spaces
         print(words)
@@ -160,7 +166,7 @@ class Browser():
             print("linkDict:",self.linkDict)
 
         elif(self.command == "read page content"):
-            self.getPageContent()
+            self.readPageContentThread()
 
 
     def goToURL(self, url, fowback = False):
@@ -229,20 +235,89 @@ class Browser():
     def pageLoaded(self,webview, frame):
         stream = subprocess.Popen(['espeak','page loaded'])
 
-    def getPageContent(self):
-        x = self.browserWebView.get_main_frame().get_data_source().get_data()
-        h = html2text.HTML2Text()
-        h.ignore_links = True
-        # print(html2text.html2text(x))
-        print(h.handle(x))
 
+    def readPageContentThread(self):
+    	threading.Thread(target = self.readPageContent, args=() ).start()
+    	# self.cb()
 
-    
+    def cb(self):
+    	# time.sleep(1)
+    	# gobject.idle_add(self.readPageContent)
+    	pass
 
-    
+    def readPageContent(self):
+    	# METHOD 1
+		global website
+		x = self.browserWebView.get_main_frame().get_data_source().get_data()
+		h = html2text.HTML2Text()
+		h.ignore_links = False
+		text = str(h.handle(x))
+		content = text.split('\n')
+        # print(len(content))
+		i = 0
+		while( i < len(content)):
+			content[i] = content[i].strip()
+        	
+			if(content[i] == ''):
+				i+=1
+				continue
+        	
+			if(content[i].startswith('![')):
+				# print("IMAGE :")
+				while(content[i].find(']') == -1):
+					content[i] = content[i] + content[i+1]
+					del content[i+1]
+				while(content[i].find(')') == -1):
+					content[i] = content[i] + content[i+1]
+					del content[i+1]
+				start = content[i].find('[')
+				end = content[i].find(']')
+				content[i] = "Image on "+content[i][start+1:end]
 
+			if(content[i].find('[') >= 0):
+
+				while(True):
+					print("hyperlink:",content[i])
+					start = content[i].find('[')
+
+					while(start >= 0):
+						end = content[i].find(']',start)
+						while(end == -1):
+							content[i] = content[i] + content[i+1]
+							del content[i+1]
+							end = content[i].find(']',start)
+						if(end+1 < len(content[i]) and content[i][end+1] == '('):
+							start_ = end+1
+							end_ = content[i].find(')',start_)
+							while(end_ == -1):
+								content[i] = content[i] + content[i+1]
+								del content[i+1]
+								end_ = content[i].find(')',start_)
+							content[i] = content[i][0:start_]+content[i][end_+1:]
+
+						start = content[i].find('[')
+						content[i] = content[i][0:start]+content[i][start+1:]
+						end = content[i].find(']')
+						content[i] = content[i][0:end]+content[i][end+1:]
+
+						start = content[i].find('[')
+					else:
+						break
+				# print(content[i])
+
+			print(content[i])
+
+			stream = subprocess.Popen(['espeak',content[i]])
+			stream.wait()
+
+			if(not self.audioOutput):
+				return
+        	# time.sleep(3)
+			i+=1
+
+        	
 
 if __name__ == "__main__":  
-
-    browser = Browser()
+	gtk.gdk.threads_init()
+	browser = Browser()
     
