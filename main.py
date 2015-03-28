@@ -190,10 +190,10 @@ class Browser():
         for key in searchDict:
             print(key,":",str(searchDict[key]))
             #uncomment to speak out links in order
-            # stream = subprocess.Popen(['espeak','Link '+str(i)])
-            # stream.wait()
-            # stream = subprocess.Popen(['espeak',str(key).encode('utf-8')])
-            # stream.wait()
+            stream = subprocess.Popen(['espeak','Link '+str(i)])
+            stream.wait()
+            stream = subprocess.Popen(['espeak',str(key).encode('utf-8')])
+            stream.wait()
             self.linkDict[i] = searchDict[key]
             i += 1
         print("linkdict:",self.linkDict)
