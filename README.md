@@ -30,3 +30,6 @@ Lists out all the stored bookmarks
 
 `read page content`  
 Reads the page content
+
+`get hyperlinks`  
+Reads out the hyperlinks in the page
